@@ -31,17 +31,19 @@ type UserService interface {
 
 type userService struct {
 	userRepository repository.UserRepository
-
-	redisClient *redis.Client
+	jobRepository  repository.JobRepository
+	redisClient    *redis.Client
 }
 
 func NewUserService(
 	userRepository repository.UserRepository,
+	jobRepository repository.JobRepository,
 	redisClient *redis.Client,
 ) UserService {
 
 	return &userService{
 		userRepository: userRepository,
+		jobRepository:  jobRepository,
 		redisClient:    redisClient,
 	}
 }
@@ -161,9 +163,41 @@ func (s *userService) CreateUser(
 		)
 	}
 
+	// =====================
+	// Create user
+	// =====================
+
 	err := s.userRepository.Create(
 		ctx,
 		user,
+	)
+
+	if err != nil {
+
+		return err
+	}
+
+	// =====================
+	// Create async job
+	// =====================
+
+	payload := fmt.Sprintf(
+		`{"user_id":%d}`,
+		user.ID,
+	)
+
+	job := &model.Job{
+
+		Type: model.JobTypeSendEmail,
+
+		Payload: payload,
+
+		Status: model.JobStatusPending,
+	}
+
+	err = s.jobRepository.Create(
+		ctx,
+		job,
 	)
 
 	if err != nil {

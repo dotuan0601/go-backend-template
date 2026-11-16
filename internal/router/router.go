@@ -10,8 +10,15 @@ func RegisterRoutes(
 	mux *http.ServeMux,
 	healthHandler *handler.HealthHandler,
 	userHandler *handler.UserHandler,
+	statisticHandler *handler.StatisticHandler,
 ) {
 	mux.HandleFunc("GET /health", healthHandler.Health)
+
+	mux.HandleFunc(
+		"POST /users",
+		userHandler.CreateUser,
+	)
+
 	// list users
 	mux.HandleFunc(
 		"GET /users",
@@ -22,5 +29,10 @@ func RegisterRoutes(
 	mux.HandleFunc(
 		"GET /users/{id}",
 		userHandler.GetUser,
+	)
+
+	mux.HandleFunc(
+		"GET /system/statistic",
+		statisticHandler.Statistic,
 	)
 }

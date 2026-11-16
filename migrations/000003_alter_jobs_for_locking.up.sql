@@ -1,0 +1,12 @@
+ALTER TABLE jobs
+ADD COLUMN locked_by VARCHAR(100) NULL,
+ADD COLUMN locked_at TIMESTAMP NULL,
+ADD COLUMN failed_at TIMESTAMP NULL;
+
+
+ALTER TABLE jobs
+MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'PENDING';
+
+
+CREATE INDEX idx_jobs_status_created
+ON jobs(status, created_at);

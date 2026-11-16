@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
+	"uuid"
 
 	"github.com/dotuan0601/go-backend-template/internal/config"
 	"github.com/dotuan0601/go-backend-template/internal/datasource/mysql"
@@ -19,6 +21,7 @@ import (
 	"github.com/dotuan0601/go-backend-template/internal/repository"
 	"github.com/dotuan0601/go-backend-template/internal/router"
 	"github.com/dotuan0601/go-backend-template/internal/service"
+	"github.com/dotuan0601/go-backend-template/internal/worker"
 )
 
 func main() {
@@ -109,6 +112,9 @@ func main() {
 	userRepository := repository.NewUserRepository(
 		mysqlDS.DB(),
 	)
+	jobRepository := repository.NewJobRepository(
+		mysqlDS.DB(),
+	)
 
 	// =========================
 	// Service
@@ -116,7 +122,22 @@ func main() {
 
 	userService := service.NewUserService(
 		userRepository,
+		jobRepository,
 		redisDS.Client(),
+	)
+
+	workerID := fmt.Sprintf(
+		"worker-%s",
+		uuid.New().String(),
+	)
+
+	emailWorker := worker.NewEmailWorker(
+		jobRepository,
+		workerID,
+	)
+
+	emailWorker.Start(
+		context.Background(),
 	)
 
 	// =========================
@@ -132,6 +153,12 @@ func main() {
 		log,
 	)
 
+	statisticService := service.NewStatisticService()
+
+	statisticHandler := handler.NewStatisticHandler(
+		statisticService,
+	)
+
 	// =========================
 	// Router
 	// =========================
@@ -142,6 +169,7 @@ func main() {
 		mux,
 		healthHandler,
 		userHandler,
+		statisticHandler,
 	)
 
 	// =========================
@@ -162,9 +190,20 @@ func main() {
 	// HTTP Server
 	// =========================
 
+	port := cfg.Server.Port
+	if envPort := os.Getenv("SERVER_PORT"); envPort != "" {
+
+		p, err := strconv.Atoi(envPort)
+
+		if err == nil {
+
+			port = p
+		}
+	}
+
 	addr := fmt.Sprintf(
 		":%d",
-		cfg.Server.Port,
+		port,
 	)
 
 	server := &http.Server{
