@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/dotuan0601/go-backend-template/internal/middleware"
 	"github.com/dotuan0601/go-backend-template/internal/response"
 )
 
@@ -15,6 +14,7 @@ type HealthHandler struct {
 func NewHealthHandler(
 	logger *slog.Logger,
 ) *HealthHandler {
+
 	return &HealthHandler{
 		logger: logger,
 	}
@@ -24,20 +24,12 @@ func (h *HealthHandler) Health(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	requestID := r.Context().Value(
-		middleware.RequestIDKey,
-	)
+
 	h.logger.Info(
 		"health check called",
-		"method",
-		r.Method,
-		"path",
-		r.URL.Path,
-		"request_id",
-		requestID,
 	)
 
-	data := map[string]string{
+	data := map[string]interface{}{
 		"status": "ok",
 	}
 
@@ -45,5 +37,4 @@ func (h *HealthHandler) Health(
 		w,
 		data,
 	)
-
 }

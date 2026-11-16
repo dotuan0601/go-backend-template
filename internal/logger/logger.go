@@ -5,20 +5,14 @@ import (
 	"os"
 )
 
-func Init(env string) *slog.Logger {
-
-	var level slog.Level
-
-	if env == "dev" {
-		level = slog.LevelDebug
-	} else {
-		level = slog.LevelInfo
-	}
+func Init(
+	env string,
+) *slog.Logger {
 
 	handler := slog.NewJSONHandler(
 		os.Stdout,
 		&slog.HandlerOptions{
-			Level: level,
+			Level: slog.LevelInfo,
 		},
 	)
 

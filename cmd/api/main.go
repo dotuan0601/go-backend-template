@@ -11,13 +11,18 @@ import (
 	"time"
 
 	"github.com/dotuan0601/go-backend-template/internal/config"
+	"github.com/dotuan0601/go-backend-template/internal/datasource/mysql"
+	"github.com/dotuan0601/go-backend-template/internal/datasource/redis"
 	"github.com/dotuan0601/go-backend-template/internal/handler"
 	"github.com/dotuan0601/go-backend-template/internal/logger"
 	"github.com/dotuan0601/go-backend-template/internal/middleware"
+	"github.com/dotuan0601/go-backend-template/internal/repository"
 	"github.com/dotuan0601/go-backend-template/internal/router"
+	"github.com/dotuan0601/go-backend-template/internal/service"
 )
 
 func main() {
+
 	env := flag.String(
 		"env",
 		"dev",
@@ -26,29 +31,146 @@ func main() {
 
 	flag.Parse()
 
+	// =========================
+	// Config
+	// =========================
+
 	configPath := fmt.Sprintf(
 		"configs/config-%s.yml",
 		*env,
 	)
 
 	cfg, err := config.Load(configPath)
+
 	if err != nil {
 		panic(err)
 	}
 
+	// =========================
+	// Logger
+	// =========================
+
 	log := logger.Init(*env)
 
-	mux := http.NewServeMux()
+	// =========================
+	// Datasource
+	// =========================
 
-	healthHandler := handler.NewHealthHandler(log)
+	mysqlDS, err := mysql.New(
+		cfg.MySQL,
+	)
+
+	if err != nil {
+		log.Error(
+			"failed to init mysql",
+			"error",
+			err,
+		)
+
+		panic(err)
+	}
+
+	defer func() {
+
+		if err := mysqlDS.Close(); err != nil {
+
+			log.Error(
+				"failed to close mysql",
+				"error",
+				err,
+			)
+
+		}
+
+	}()
+
+	redisDS, err := redis.New(
+		cfg.Redis.Host,
+		cfg.Redis.Port,
+	)
+
+	if err != nil {
+
+		log.Error(
+			"failed to init redis",
+			"error",
+			err,
+		)
+
+		panic(err)
+	}
+
+	defer redisDS.Close()
+
+	// =========================
+	// Repository
+	// =========================
+
+	userRepository := repository.NewUserRepository(
+		mysqlDS.DB(),
+	)
+
+	// =========================
+	// Service
+	// =========================
+
+	userService := service.NewUserService(
+		userRepository,
+		redisDS.Client(),
+	)
+
+	// =========================
+	// Handler
+	// =========================
+
+	healthHandler := handler.NewHealthHandler(
+		log,
+	)
+
+	userHandler := handler.NewUserHandler(
+		userService,
+		log,
+	)
+
+	// =========================
+	// Router
+	// =========================
+
+	mux := http.NewServeMux()
 
 	router.RegisterRoutes(
 		mux,
 		healthHandler,
+		userHandler,
 	)
 
-	port := cfg.Server.Port
-	addr := fmt.Sprintf(":%d", port)
+	// =========================
+	// Middleware
+	// =========================
+
+	httpHandler := middleware.RequestID(
+		mux,
+	)
+
+	httpHandler = middleware.Logger(
+		log,
+	)(
+		httpHandler,
+	)
+
+	// =========================
+	// HTTP Server
+	// =========================
+
+	addr := fmt.Sprintf(
+		":%d",
+		cfg.Server.Port,
+	)
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: httpHandler,
+	}
 
 	log.Info(
 		"starting api server",
@@ -56,20 +178,23 @@ func main() {
 		addr,
 	)
 
-	server := &http.Server{
-		Addr:    addr,
-		Handler: middleware.RequestID(mux),
-	}
-
-	serverErr := make(chan error)
+	serverErr := make(chan error, 1)
 
 	go func() {
+
 		err := server.ListenAndServe()
 
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil &&
+			err != http.ErrServerClosed {
+
 			serverErr <- err
 		}
+
 	}()
+
+	// =========================
+	// Shutdown signal
+	// =========================
 
 	quit := make(chan os.Signal, 1)
 
@@ -80,11 +205,23 @@ func main() {
 	)
 
 	select {
+
 	case err := <-serverErr:
-		fmt.Printf("server error: %v\n", err)
+
+		log.Error(
+			"server error",
+			"error",
+			err,
+		)
 
 	case sig := <-quit:
-		fmt.Printf("received signal: %v\n", sig)
+
+		log.Info(
+			"shutdown signal received",
+			"signal",
+			sig,
+		)
+
 	}
 
 	ctx, cancel := context.WithTimeout(
@@ -95,12 +232,17 @@ func main() {
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
+
 		log.Error(
 			"failed to shutdown server",
 			"error",
 			err,
 		)
+
 	}
 
-	fmt.Println("server stopped")
+	log.Info(
+		"server stopped",
+	)
+
 }

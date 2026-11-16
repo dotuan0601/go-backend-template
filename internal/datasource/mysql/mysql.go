@@ -3,20 +3,20 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/dotuan0601/go-backend-template/internal/config"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
-type MySQL struct {
-	DB *sql.DB
+type DataSource struct {
+	db *sql.DB
 }
 
-func New(
-	cfg config.MySQLConfig,
-) (*MySQL, error) {
-
+func New(cfg config.MySQLConfig) (*DataSource, error) {
 	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s",
+		"%s:%s@tcp(%s:%d)/%s?parseTime=true&loc=Local",
 		cfg.Username,
 		cfg.Password,
 		cfg.Host,
@@ -33,16 +33,29 @@ func New(
 		return nil, err
 	}
 
-	return &MySQL{
-		DB: db,
+	// Connection pool config
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(time.Hour)
+
+	// Verify database connection
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return &DataSource{
+		db: db,
 	}, nil
 }
 
-func (m *MySQL) Close() error {
+func (d *DataSource) DB() *sql.DB {
+	return d.db
+}
 
-	if m.DB == nil {
+func (d *DataSource) Close() error {
+	if d.db == nil {
 		return nil
 	}
 
-	return m.DB.Close()
+	return d.db.Close()
 }

@@ -10,6 +10,7 @@ type Config struct {
 	Server ServerConfig `yaml:"server"`
 	App    AppConfig    `yaml:"app"`
 	MySQL  MySQLConfig  `yaml:"mysql"`
+	Redis  RedisConfig  `yaml:"redis"`
 }
 
 type ServerConfig struct {
@@ -26,6 +27,12 @@ type MySQLConfig struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	Database string `yaml:"database"`
+}
+
+type RedisConfig struct {
+	Host string `yaml:"host"`
+
+	Port int `yaml:"port"`
 }
 
 func Load(path string) (*Config, error) {

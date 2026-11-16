@@ -9,4 +9,8 @@ mysql:
   port: 3306
   username: root
   password: root
-  database: app
+  database: go_backend_template
+
+redis:
+  host: localhost
+  port: 6379

@@ -9,7 +9,11 @@ import (
 
 type contextKey string
 
-const RequestIDKey contextKey = "request_id"
+const (
+	RequestIDKey contextKey = "request_id"
+	PathKey      contextKey = "path"
+	MethodKey    contextKey = "method"
+)
 
 func RequestID(
 	next http.Handler,
@@ -20,11 +24,18 @@ func RequestID(
 		r *http.Request,
 	) {
 
-		requestID := r.Header.Get("X-Request-ID")
+		requestID := r.Header.Get(
+			"X-Request-ID",
+		)
 
 		if requestID == "" {
 			requestID = uuid.New().String()
 		}
+
+		r.Header.Set(
+			"X-Request-ID",
+			requestID,
+		)
 
 		ctx := context.WithValue(
 			r.Context(),
@@ -32,9 +43,16 @@ func RequestID(
 			requestID,
 		)
 
+		r = r.WithContext(ctx)
+
+		w.Header().Set(
+			"X-Request-ID",
+			requestID,
+		)
+
 		next.ServeHTTP(
 			w,
-			r.WithContext(ctx),
+			r,
 		)
 	})
 }
