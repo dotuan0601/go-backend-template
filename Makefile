@@ -11,3 +11,9 @@ build:
 	mkdir -p bin
 	go build -o bin/api ./cmd/api
 
+migrate-up:
+	go run ./cmd/migrate -direction up
+
+
+migrate-down:
+	go run ./cmd/migrate -direction down
