@@ -60,7 +60,7 @@ func (w *EmailWorker) process(
 	jobs, err := w.jobRepository.ClaimJobs(
 		ctx,
 		w.workerID,
-		200,
+		500,
 	)
 
 	if err != nil {

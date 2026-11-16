@@ -161,6 +161,12 @@ func (r *jobRepository) ClaimJobs(
 		)
 	}
 
+	// check iterator error
+	if err := rows.Err(); err != nil {
+
+		return nil, err
+	}
+
 	for _, job := range jobs {
 
 		_, err := tx.ExecContext(
